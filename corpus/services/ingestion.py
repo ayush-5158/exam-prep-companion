@@ -6,8 +6,7 @@ from pinecone import Pinecone
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_mistralai import MistralAIEmbeddings
 
-from corpus.models import SourceDocument
-
+from corpus.models import SourceDocument, Chunk
 
 load_dotenv()
 
@@ -43,6 +42,27 @@ def create_chunks(text):
 
     return chunks
 
+
+def save_chunks(document_id, chunks):
+    document = SourceDocument.objects.get(id=document_id)
+
+    # Existing chunks delete karo
+    Chunk.objects.filter(document=document).delete()
+
+    chunk_objects = []
+
+    for i, content in enumerate(chunks):
+        chunk_objects.append(
+            Chunk(
+                document=document,
+                content=content,
+                chunk_index=i,
+            )
+        )
+
+    Chunk.objects.bulk_create(chunk_objects)
+
+    return len(chunk_objects)
 
 def create_embeddings(chunks):
     embeddings = MistralAIEmbeddings(
@@ -84,14 +104,23 @@ def store_vectors(document_id, chunks, vectors):
 
 
 def ingest_document(document_id):
-
+    # 1. PDF se text extract
     text = extract_document_text(document_id)
 
+    # 2. Text ko chunks me divide
     chunks = create_chunks(text)
 
+    # 3. Chunks PostgreSQL me save
+    chunk_count = save_chunks(
+        document_id,
+        chunks,
+    )
+
+    # 4. Chunks ke embeddings create
     vectors = create_embeddings(chunks)
 
-    count = store_vectors(
+    # 5. Vectors Pinecone me store
+    vector_count = store_vectors(
         document_id,
         chunks,
         vectors,
@@ -99,6 +128,6 @@ def ingest_document(document_id):
 
     return {
         "document_id": document_id,
-        "chunks": len(chunks),
-        "vectors": count,
+        "chunks": chunk_count,
+        "vectors": vector_count,
     }
