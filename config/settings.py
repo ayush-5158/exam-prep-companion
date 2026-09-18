@@ -42,7 +42,8 @@ INSTALLED_APPS = [
     'corpus',
     'notes',
     'qna',
-    'quiz'
+    'quiz',
+    "rest_framework",
 ]
 
 MIDDLEWARE = [
