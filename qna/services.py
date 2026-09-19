@@ -19,12 +19,15 @@ def get_llm():
 
 def answer_question(question):
     # 1. Retrieve relevant chunks from Pinecone
-    retrieved_chunks = retrieve_chunks(question, top_k=5)
+    retrieved_chunks = retrieve_chunks(
+        question,
+        top_k=5,
+    )
 
     # 2. Build context from retrieved chunks
     context = build_context(retrieved_chunks)
 
-    # 3. Send context + question to Gemini
+    # 3. Create prompt
     prompt = f"""
 You are a UPSC preparation assistant.
 
@@ -40,13 +43,26 @@ Question:
 {question}
 """
 
+    # 4. Send context + question to Gemini
     llm = get_llm()
 
     response = llm.invoke(prompt)
 
+    # 5. Get clean text response
     answer = response.text()
 
+    # 6. Prepare clean source information
+    sources = []
+
+    for chunk in retrieved_chunks:
+        sources.append({
+            "document_id": chunk["document_id"],
+            "chunk_index": chunk["chunk_index"],
+            "score": chunk["score"],
+        })
+
+    # 7. Return API-friendly response
     return {
         "answer": answer,
-        "sources": retrieved_chunks,
+        "sources": sources,
     }
